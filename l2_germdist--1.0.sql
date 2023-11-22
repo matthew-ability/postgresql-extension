@@ -1,10 +1,11 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
-\echo Use "CREATE EXTENSION hammingdistance" to load this file. \quit
+\echo Use "CREATE EXTENSION h1_germdist" to load this file. \quit
 
-CREATE FUNCTION hammingdistance(text, text) RETURNS int
+
+CREATE FUNCTION l2_germdist(text) RETURNS int
 AS
 'MODULE_PATHNAME',
-'hammingdistance'
+'l2_germdist'
     LANGUAGE C IMMUTABLE
                STRICT
                PARALLEL SAFE;
