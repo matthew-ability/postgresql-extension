@@ -11,6 +11,7 @@
 
 #define arraysize(a)  (sizeof(a)/sizeof(const char *))
 #define MAXCOUNT 65535
+#define MIN3(a, b, c) ((a) < (b) ? ((a) < (c) ? (a) : (c)) : ((b) < (c) ? (b) : (c)))
 
 const char *h1_labels[] = {"IGHV1-18","IGHV1-2","IGHV1-24","IGHV1-3","IGHV1-45","IGHV1-46","IGHV1-58",
 	"IGHV1-69/IGHV1-69D","IGHV1-69-2","IGHV1-8","IGHV2-26","IGHV2-5","IGHV2-70","IGHV3-11","IGHV3-13",
@@ -188,6 +189,37 @@ static inline int hdist(const char *str1, const char *str2)
 }
 
 /*
+ * compute levenshtein distance between two strings
+ * returns number of edits to turn one string into another
+ *
+ */
+static inline int ldist(const char *s1, const char *s2);
+static inline int ldist(const char *s1, const char *s2)
+{
+    unsigned int s1len, s2len, x, y, lastdiag, olddiag, result, *column;
+    s1len = strlen(s1);
+    s2len = strlen(s2);
+    
+    //unsigned int column[s1len + 1]; // old C
+    column = (unsigned int *)malloc((s1len+1)*sizeof(unsigned int));
+
+    for (y = 1; y <= s1len; y++)
+        column[y] = y;
+    for (x = 1; x <= s2len; x++) {
+        column[0] = x;
+        for (y = 1, lastdiag = x - 1; y <= s1len; y++) {
+            olddiag = column[y];
+            column[y] = MIN3(column[y] + 1, column[y - 1] + 1, lastdiag + (s1[y-1] == s2[x - 1] ? 0 : 1));
+            lastdiag = olddiag;
+        }
+    }
+    result = column[s1len];
+    free(column);
+    return result;
+};
+
+
+/*
  * labels
  * finds the germline sequence closes to the argument, and returns the label for that germline
  * sequence - sequence to check
@@ -206,7 +238,7 @@ const char * label( const char * sequence, const char* sequences[], const char* 
     const char *mintype  = NULL;
 
     for (int s = 0; s < seq_len; s++ ) {
-    	    count = hdist(sequence, sequences[s]);
+    	    count = ldist(sequence, sequences[s]);
 
       	    if (count > -1 && count < minvalue) {
 		    minvalue = count;
@@ -238,7 +270,7 @@ int mindist( const char * sequence, const char * sequences[], const int seq_len)
     
     for (int s = 0; s < seq_len; s++ ) {
 	    str2 = sequences[s];
-    	    count = hdist(str1, str2);
+    	    count = ldist(str1, str2);
       	    if (count > -1 && count < minvalue) {
 		    minvalue = count; 
 	    }
@@ -271,6 +303,21 @@ hammingdistance(PG_FUNCTION_ARGS)
     PG_RETURN_INT32(count);
 }
 
+
+PG_FUNCTION_INFO_V1(levenshteindistance);
+Datum
+levenshteindistance(PG_FUNCTION_ARGS)
+{   
+    const char *str1, *str2;
+    int count; 
+                    
+    str1 = text_to_cstring(PG_GETARG_TEXT_PP(0));
+    str2 = text_to_cstring(PG_GETARG_TEXT_PP(1));
+    
+    count = ldist(str1, str2);
+    if (count == -1)    PG_RETURN_NULL();
+    PG_RETURN_INT32(count);
+}   
 
 
 PG_FUNCTION_INFO_V1(h1_germdist);
